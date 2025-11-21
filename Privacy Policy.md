@@ -1,4 +1,5 @@
 tiktok-developers-site-verification=qylFhxgtN6nhgGtpZKQ5uq3NxBXFLk3P
+tiktok-developers-site-verification=elnHbTDok7B1IZ2QUBPvWLmJkhGThcPa
 Privacy Policy
 Berlaku sejak: 21 November 2025
 
