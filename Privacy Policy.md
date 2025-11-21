@@ -22,3 +22,5 @@ Risiko & Tanggung Jawab:
 Perubahan Kebijakan:
 
     - Kebijakan ini dapat diperbarui kapan saja. Perubahan akan tercatat di file ini.
+
+    tiktok-developers-site-verification=qylFhxgtN6nhgGtpZKQ5uq3NxBXFLk3P
