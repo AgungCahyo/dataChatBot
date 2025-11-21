@@ -1,0 +1,526 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["messages"],
+        "options": {}
+      },
+      "id": "whatsapp-trigger",
+      "name": "WhatsApp Trigger",
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [100, 400],
+      "webhookId": "305f0bda-219b-4a31-b133-846d61ea1585",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "Lac0wDITJMBiyOwC",
+          "name": "WhatsApp OAuth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// RATE LIMITER - Prevent spam\nconst from = $json.messages?.[0]?.from;\nconst timestamp = Date.now();\n\nif (!from) {\n  throw new Error('No sender phone number');\n}\n\n// Get or initialize rate limit data\nconst rateLimitKey = `ratelimit_${from}`;\nconst stored = $getWorkflowStaticData('global')[rateLimitKey] || { count: 0, resetTime: timestamp };\n\n// Reset counter every minute\nif (timestamp > stored.resetTime) {\n  stored.count = 0;\n  stored.resetTime = timestamp + 60000; // +1 minute\n}\n\n// Check limit (10 messages per minute)\nif (stored.count >= 10) {\n  return {\n    json: {\n      rateLimited: true,\n      from: from,\n      message: 'Mohon tunggu sebentar, Anda mengirim terlalu banyak pesan. Coba lagi dalam 1 menit ya! 🙏'\n    }\n  };\n}\n\n// Increment counter\nstored.count++;\n$getWorkflowStaticData('global')[rateLimitKey] = stored;\n\nreturn {\n  json: {\n    rateLimited: false,\n    ...($json)\n  }\n};"
+      },
+      "id": "rate-limiter",
+      "name": "Rate Limiter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-rate-limit",
+              "leftValue": "={{ $json.rateLimited }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-not-rate-limited",
+      "name": "Not Rate Limited?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [500, 400]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_ID }}",
+        "recipientPhoneNumber": "={{ $json.from }}",
+        "textBody": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "send-rate-limit-message",
+      "name": "Send Rate Limit Message",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [700, 550],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "F0wNZx1vYAvH9rbN",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-messages",
+              "leftValue": "={{ $json.messages }}",
+              "operator": {
+                "type": "array",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-message-event",
+      "name": "Is Message Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "message-text",
+              "name": "textBody",
+              "value": "={{ $json.messages[0].text?.body || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number",
+              "name": "from",
+              "value": "={{ $json.messages[0].from }}",
+              "type": "string"
+            },
+            {
+              "id": "user-name",
+              "name": "userName",
+              "value": "={{ $json.contacts[0]?.profile?.name || 'Teman' }}",
+              "type": "string"
+            },
+            {
+              "id": "message-id",
+              "name": "messageId",
+              "value": "={{ $json.messages[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $json.messages[0].timestamp }}",
+              "type": "number"
+            },
+            {
+              "id": "current-date",
+              "name": "date",
+              "value": "={{ $now.format('yyyy-MM-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "current-hour",
+              "name": "hour",
+              "value": "={{ $now.setZone('Asia/Jakarta').toFormat('HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "message-type",
+              "name": "type",
+              "value": "={{ $json.messages[0].type }}",
+              "type": "string"
+            },
+            {
+              "id": "has-media",
+              "name": "hasMedia",
+              "value": "={{ ['image', 'document', 'audio', 'video'].includes($json.messages[0].type) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "audio-id",
+              "name": "audioId",
+              "value": "={{ $json.messages[0].audio?.id || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-message-data",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-text-type",
+              "leftValue": "={{ $json.type }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "text"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-text-message",
+      "name": "Is Text Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-audio",
+              "leftValue": "={{ $json.type }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "audio"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-audio-message",
+      "name": "Is Audio Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1300, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WHATSAPP_API_URL }}/{{ $env.WHATSAPP_PHONE_ID }}/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_product\": \"whatsapp\",\n  \"status\": \"read\",\n  \"message_id\": \"{{ $json.messageId }}\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "mark-as-read",
+      "name": "Mark as Read",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1500, 200],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "F0wNZx1vYAvH9rbN",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.WHATSAPP_API_URL }}/{{ $json.audioId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-audio-url",
+      "name": "Get Audio URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1700, 450],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "F0wNZx1vYAvH9rbN",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpBearerAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "download-audio",
+      "name": "Download Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1900, 450],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "ImwmfLUoXxFFXMxk",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AUDIO VALIDATOR - Check quality before processing\nconst binaryData = $input.first().binary?.data;\n\nif (!binaryData) {\n  throw new Error('No audio data received');\n}\n\nconst fileSize = binaryData.fileSize || 0;\nconst mimeType = binaryData.mimeType || '';\n\n// Validate file size (min 1KB, max 16MB)\nif (fileSize < 1024) {\n  return {\n    json: {\n      valid: false,\n      error: 'Audio terlalu pendek atau rusak. Coba rekam ulang! 🎤'\n    }\n  };\n}\n\nif (fileSize > 16 * 1024 * 1024) {\n  return {\n    json: {\n      valid: false,\n      error: 'Audio terlalu besar (max 16MB). Coba kirim audio yang lebih pendek! 🙏'\n    }\n  };\n}\n\n// Validate MIME type\nconst validTypes = ['audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/amr'];\nif (!validTypes.some(type => mimeType.includes(type))) {\n  return {\n    json: {\n      valid: false,\n      error: 'Format audio tidak didukung. Gunakan voice note WhatsApp ya! 🎤'\n    }\n  };\n}\n\n// Get buffer\nlet audioBuffer;\ntry {\n  audioBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n} catch (error) {\n  return {\n    json: {\n      valid: false,\n      error: 'Gagal membaca audio. Coba kirim ulang! 🙏'\n    }\n  };\n}\n\n// Check for silence (corrupted audio)\nconst sampleSize = Math.min(1000, audioBuffer.length);\nconst sample = audioBuffer.slice(0, sampleSize);\nconst nonZero = sample.filter(b => b !== 0).length;\n\nif (nonZero < sampleSize * 0.1) {\n  return {\n    json: {\n      valid: false,\n      error: 'Audio kosong atau rusak. Coba rekam ulang dengan jelas! 🎤'\n    }\n  };\n}\n\nreturn {\n  json: {\n    valid: true,\n    fileSize: fileSize,\n    mimeType: mimeType\n  },\n  binary: {\n    data: binaryData\n  }\n};"
+      },
+      "id": "validate-audio",
+      "name": "Validate Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2100, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-valid",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-audio-valid",
+      "name": "Is Audio Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2300, 450]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_ID }}",
+        "recipientPhoneNumber": "={{ $('Extract Message Data').first().json.from }}",
+        "textBody": "={{ $json.error }}",
+        "additionalFields": {}
+      },
+      "id": "send-audio-error",
+      "name": "Send Audio Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [2500, 600],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "F0wNZx1vYAvH9rbN",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPROVED AUDIO PROCESSOR - Better format detection\nconst binaryData = $input.first().binary?.data;\n\nif (!binaryData) {\n  throw new Error('No binary data');\n}\n\nlet audioBuffer;\ntry {\n  audioBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n} catch (error) {\n  throw new Error('Failed to get buffer: ' + error.message);\n}\n\nif (!Buffer.isBuffer(audioBuffer)) {\n  if (typeof audioBuffer === 'string') {\n    audioBuffer = Buffer.from(audioBuffer, 'base64');\n  } else {\n    throw new Error('Invalid buffer type');\n  }\n}\n\nconsole.log('Processing audio:', audioBuffer.length, 'bytes');\n\n// Detect format\nconst header = audioBuffer.slice(0, 12).toString('hex');\nlet encoding = 'ENCODING_UNSPECIFIED';\nlet needsConversion = false;\n\nif (header.startsWith('4f676753')) {\n  // OGG container - WhatsApp default\n  const oggCheck = audioBuffer.slice(0, 100).toString('ascii');\n  if (oggCheck.includes('OpusHead')) {\n    encoding = 'OGG_OPUS';\n    console.log('Detected: OGG Opus');\n  } else {\n    encoding = 'ENCODING_UNSPECIFIED';\n    needsConversion = true;\n  }\n} else if (header.startsWith('52494646')) {\n  // WAV/RIFF\n  encoding = 'LINEAR16';\n  console.log('Detected: WAV');\n} else if (header.startsWith('664c6143')) {\n  // FLAC\n  encoding = 'FLAC';\n  console.log('Detected: FLAC');\n} else {\n  console.log('Unknown format, trying OGG_OPUS');\n  encoding = 'OGG_OPUS';\n}\n\nconst base64Audio = audioBuffer.toString('base64');\n\n// Validate base64\nif (base64Audio.length === 0 || base64Audio.includes('filesystem')) {\n  throw new Error('Base64 conversion failed');\n}\n\nconsole.log('Base64 size:', base64Audio.length, 'chars');\n\nreturn {\n  json: {\n    request: {\n      config: {\n        encoding: encoding,\n        sampleRateHertz: 16000,\n        languageCode: 'id-ID',\n        enableAutomaticPunctuation: true,\n        model: 'default',\n        useEnhanced: true\n      },\n      audio: {\n        content: base64Audio\n      }\n    },\n    metadata: {\n      originalSize: audioBuffer.length,\n      encoding: encoding,\n      base64Size: base64Audio.length\n    }\n  }\n};"
+      },
+      "id": "process-audio",
+      "name": "Process Audio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 450]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GOOGLE_STT_API_URL || 'https://speech.googleapis.com/v1/speech:recognize' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $env.GOOGLE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retry": {
+              "maxRetries": 2,
+              "retryOnHttpStatusCodes": [429, 500, 502, 503, 504]
+            }
+          }
+        }
+      },
+      "id": "speech-to-text",
+      "name": "Speech to Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2700, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPROVED RESPONSE PROCESSOR\nconst response = $input.first().json;\nconst extractData = $('Extract Message Data').first().json;\n\nconsole.log('STT Response:', JSON.stringify(response, null, 2));\n\n// Handle API errors\nif (response.error) {\n  console.error('STT Error:', response.error);\n  \n  let errorMessage = 'Maaf, gagal memproses audio. ';\n  \n  if (response.error.code === 429) {\n    errorMessage += 'Sistem sedang sibuk, coba lagi sebentar ya! 🙏';\n  } else if (response.error.code === 400) {\n    errorMessage += 'Format audio tidak didukung. Gunakan voice note WhatsApp! 🎤';\n  } else {\n    errorMessage += 'Coba kirim ulang atau ketik pesannya! 🙏';\n  }\n  \n  return {\n    json: {\n      error: true,\n      textBody: errorMessage,\n      from: extractData.from,\n      userName: extractData.userName\n    }\n  };\n}\n\n// Check results\nif (!response.results || response.results.length === 0) {\n  console.log('No speech detected');\n  return {\n    json: {\n      error: true,\n      textBody: 'Tidak terdengar suara dalam audio. Coba rekam ulang dengan lebih jelas! 🎤',\n      from: extractData.from,\n      userName: extractData.userName\n    }\n  };\n}\n\n// Extract transcript\nconst alternatives = response.results[0].alternatives || [];\nif (alternatives.length === 0) {\n  return {\n    json: {\n      error: true,\n      textBody: 'Audio kurang jelas. Coba rekam ulang! 🙏',\n      from: extractData.from,\n      userName: extractData.userName\n    }\n  };\n}\n\nconst transcript = response.results\n  .map(r => r.alternatives[0].transcript)\n  .join(' ')\n  .trim();\n\nconst confidence = alternatives[0].confidence || 0;\n\nconsole.log('Transcript:', transcript);\nconsole.log('Confidence:', Math.round(confidence * 100) + '%');\n\n// Validate transcript\nif (transcript.length < 2) {\n  return {\n    json: {\n      error: true,\n      textBody: 'Audio terlalu pendek atau tidak jelas. Coba lagi! 🙏',\n      from: extractData.from,\n      userName: extractData.userName\n    }\n  };\n}\n\n// Low confidence warning (but still process)\nlet confidenceNote = '';\nif (confidence < 0.7 && confidence > 0) {\n  confidenceNote = ' (Audio agak kurang jelas, hasil mungkin tidak akurat)';\n}\n\n// Success\nreturn {\n  json: {\n    textBody: transcript,\n    from: extractData.from,\n    userName: extractData.userName,\n    messageId: extractData.messageId,\n    timestamp: extractData.timestamp,\n    date: extractData.date,\n    hour: extractData.hour,\n    type: 'audio',\n    originalType: 'audio',\n    confidence: confidence,\n    confidencePercent: Math.round(confidence * 100),\n    wordCount: transcript.split(' ').length,\n    confidenceNote: confidenceNote,\n    error: false\n  }\n};"
+      },
+      "id": "process-transcript",
+      "name": "Process Transcript",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2900, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "check-error",
+              "leftValue": "={{ $json.error }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "transcript-success",
+      "name": "Transcript Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3100, 450]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "phoneNumberId": "={{ $env.WHATSAPP_PHONE_ID }}",
+        "recipientPhoneNumber": "={{ $json.from }}",
+        "textBody": "={{ $json.textBody }}",
+        "additionalFields": {}
+      },
+      "id": "send-transcript-error",
+      "name": "Send Transcript Error",
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1.1,
+      "position": [3300, 600],
+      "credentials": {
+        "whatsAppApi": {
+          "id": "F0wNZx1vYAvH9rbN",
+          "name": "WhatsApp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "data",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [3300, 300],
+      "id": "get-user-data",
+      "name": "Get User Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F8XwjYaEdE4zJkCs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// IMPROVED USER DATA PROCESSOR\nconst currentMessage = $('Extract Message Data').first().json;\nconst userPhone = currentMessage.from;\n\n// Get sheet data\nconst sheetData = $input.all();\nconst existingUser = sheetData.find(row => row.json.from === userPhone);\n\nconst now = new Date();\nconst today = now.toISOString().split('T')[0];\n\nif (existingUser) {\n  // Existing user\n  const lastInteraction = existingUser.json.lastInteraction || today;\n  const daysSinceLastContact = Math.floor(\n    (now - new Date(lastInteraction)) / (1000 * 60 * 60 * 24)\n  );\n  \n  return {\n    json: {\n      ...currentMessage,\n      isNewUser: false,\n      interactionCount: (parseInt(existingUser.json.interactionCount) || 0) + 1,\n      firstContactDate: existingUser.json.firstContactDate || today,\n      lastInteraction: today,\n      daysSinceLastContact: daysSinceLastContact,\n      isReturningUser: daysSinceLastContact > 7\n    }\n  };\n} else {\n  // New user\n  return {\n    json: {\n      ...currentMessage,\n      isNewUser: true,\n      interactionCount: 1,\n      firstContactDate: today,\n      lastInteraction: today,\n      daysSinceLastContact: 0,\n      isReturningUser: false\n    }\n  };\n}"
+      },
+      "id": "process-user-data",
+      "name": "Process User Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3500, 300]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [3700, 300],
+      "id": "aggregate-data",
+      "name": "Aggregate Data"
+    }
+]
+}
