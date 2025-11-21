@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 DESKRIPSI USAHA JASA: MULTI-PLATFORM AI CHATBOT & AUTOMATION SERVICE
 
 Usaha ini bergerak di bidang pengembangan chatbot cerdas dan automasi bisnis lintas platform. Layanannya membantu bisnis dari skala UMKM hingga perusahaan besar untuk mempercepat respons pelanggan, mengoptimalkan operasional, dan menciptakan pengalaman komunikasi yang efisien menggunakan teknologi AI dan otomasi modern.
@@ -331,4 +330,4 @@ Lebih scalable
    - Lebih responsif
    - Lebih profesional
    - Lebih scalable
->>>>>>> af2beee1e374d69be2e414b96f62d85aecc70e0d
+
